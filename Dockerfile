@@ -1,16 +1,16 @@
-FROM jinhasong/pyyolo
+FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-	   git wget python3 python3-pip apt-utils \
+	   git wget python-pip apt-utils libglib2.0 libsm6 libxrender1 libxext6\
 	&& rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --upgrade pip
-RUN pip3 install setuptools
+RUN pip install --upgrade pip
+RUN pip install setuptools
 
 WORKDIR /workspace
 ADD . .
-RUN pip3 install -r requirements.txt
+RUN pip install -r requirements.txt
 
 ENV DJANGO_SUPERUSER_USERNAME root
 ENV DJANGO_SUPERUSER_EMAIL none@none.com
