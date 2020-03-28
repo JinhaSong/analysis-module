@@ -1,11 +1,18 @@
-import os
-import cv2
+from Modules.YOLOv3.models import *
+from Modules.YOLOv3.utils.utils import *
+from Modules.YOLOv3.utils.datasets import *
 
-import sys
+import os
 import time
-from PIL import Image, ImageDraw
-from Modules.YOLOv3.utils import *
-from Modules.YOLOv3.darknet import Darknet
+
+from PIL import Image
+
+import torch
+from torch.utils.data import DataLoader
+from torch.autograd import Variable
+
+import numpy as np
+
 
 class YOLOv3:
     model = None
@@ -13,52 +20,87 @@ class YOLOv3:
     path = os.path.dirname(os.path.abspath(__file__))
 
     def __init__(self):
-        # TODO
-        #   - initialize and load model here
-        cfg_path = os.path.join(self.path, "yolov3-nsfw.cfg")
-        model_path = os.path.join(self.path, "yolov3-nsfw.weights")
-        data_path = os.path.join(self.path, "nsfw.data")
-        self.model = Darknet(cfg_path)
+        self.config_path = os.path.join(self.path, "config", "yolov3-nsfw.cfg")
+        self.weights_path = os.path.join(self.path, "weights", "yolov3-nsfw_50000.weights")
+        self.class_path = os.path.join(self.path, "data", "nsfw.names")
+        self.img_size = 416
+        self.conf_thres = 0.8
+        self.nms_thres = 0.4
+        self.batch_size = 1
+        self.n_cpu = 0
 
-        self.model.print_network()
-        self.model.load_weights(model_path)
-        print('Loading weights from %s... Done!' % (model_path))
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.namesfile = data_path
+        self.model = Darknet(self.config_path, img_size=self.img_size).to(device)
 
-        self.use_cuda = 1
-        if self.use_cuda:
-            self.model.cuda()
+        if self.weights_path.endswith(".weights"):
+            # Load darknet weights
+            self.model.load_darknet_weights(self.weights_path)
+        else:
+            # Load checkpoint weights
+            self.model.load_state_dict(torch.load(self.weights_path))
 
+        self.model.eval()  # Set in evaluation mode
 
+        self.classes = load_classes(self.class_path)  # Extracts class labels from file
+        self.Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
+    def inference_by_path(self, zip_path):
+        dataloader = DataLoader(
+            ZipFileLoader(zip_path, img_size=self.img_size),
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.n_cpu,
+        )
 
-    def inference_by_path(self, image_path):
-        # TODO
-        #   - Inference using image path
-        image = cv2.imread(image_path)
-        results = self.model.detect(image, rgb=False)
+        imgs = []
+        img_detections = []
 
-        img = Image.open(image_path).convert('RGB')
-        sized = img.resize((self.model.width, self.model.height))
+        for batch_i, (input_name, input_imgs) in enumerate(dataloader):
+            input_imgs = Variable(input_imgs.type(self.Tensor))
+            
+            with torch.no_grad():
+                detections = self.model(input_imgs)
+                detections = non_max_suppression(detections, self.conf_thres, self.nms_thres)
+            
+            imgs.append(input_name)
+            img_detections.extend(detections)
 
-        for i in range(2):
-            start = time.time()
-            boxes = do_detect(self.model, sized, 0.5, 0.4, self.use_cuda)
-            finish = time.time()
-            if i == 1:
-                print('%s: Predicted in %f seconds.' % (image_path, boxes, (finish - start)))
+        zip_file = zipfile.ZipFile(zip_path)
 
-        result = []
-        # for i, obj in enumerate(results):
-        #     print(obj.name)
-        #     xmin, ymin, xmax, ymax = obj.to_xyxy()
-        #     x = xmin
-        #     y = ymin
-        #     w = xmax - xmin
-        #     h = ymax - ymin
-        #     result.append([(x,y,w,h), {obj.name: obj.prob}])
+        results = []
+        for img_i, (path, detections) in enumerate(zip(imgs, img_detections)):
+            img_name = path[0]
+            img = zip_file.read(img_name)
+            img = np.array(Image.open(io.BytesIO(img)))
 
-        self.result = result
+            img_result = {
+                "image_name": img_name,
+                "result": []
+            }
+            if detections is not None:
+                # Rescale boxes to original image
+                detections = rescale_boxes(detections, self.img_size, img.shape[:2])
+                for x, y, x2, y2, conf, cls_conf, cls_pred in detections:
+                    w = x2 - x
+                    h = y2 - y
+                    img_result['result'].append({
+                        "position": {
+                            "x": float(x),
+                            "y": float(y),
+                            "w": float(w),
+                            "h": float(h),
+                        },
+                        "description": [{
+                            "description": str(self.classes[int(cls_pred)]),
+                            "score": float(cls_conf.item())
+                        }]
+                    })
+            results.append(img_result)
+
+        zip_file.close()
+        self.result = results
+        print(self.result)
 
         return self.result
+
