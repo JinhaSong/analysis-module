@@ -18,7 +18,7 @@ class ImageModel(models.Model):
     token = models.AutoField(primary_key=True)
     uploaded_date = models.DateTimeField(auto_now_add=True)
     updated_date = models.DateTimeField(auto_now=True)
-    results = JSONField(null=True)
+    result = JSONField(null=True)
 
 
     def save(self, *args, **kwargs):
@@ -29,5 +29,5 @@ class ImageModel(models.Model):
         else:
             task_get = ast.literal_eval(str(analyzer_by_path.delay(self.image.path).get()))
 
-        self.results = task_get
+        self.result = task_get
         super(ImageModel, self).save()
