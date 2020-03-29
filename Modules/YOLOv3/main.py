@@ -100,7 +100,6 @@ class YOLOv3:
 
         zip_file.close()
         self.result = results
-        print(self.result)
 
         return self.result
 
