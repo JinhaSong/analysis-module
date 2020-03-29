@@ -74,17 +74,14 @@ class YOLOv3:
             img = zip_file.read(img_name)
             img = np.array(Image.open(io.BytesIO(img)))
 
-            img_result = {
-                "image_name": img_name,
-                "result": []
-            }
+            result =  []
             if detections is not None:
                 # Rescale boxes to original image
                 detections = rescale_boxes(detections, self.img_size, img.shape[:2])
                 for x, y, x2, y2, conf, cls_conf, cls_pred in detections:
                     w = x2 - x
                     h = y2 - y
-                    img_result['result'].append({
+                    result.append({
                         "position": {
                             "x": float(x),
                             "y": float(y),
@@ -96,7 +93,7 @@ class YOLOv3:
                             "score": float(cls_conf.item())
                         }]
                     })
-            results.append(img_result)
+            results.append(result)
 
         zip_file.close()
         self.result = results

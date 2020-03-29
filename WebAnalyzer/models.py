@@ -29,5 +29,5 @@ class ImageModel(models.Model):
         else:
             task_get = ast.literal_eval(str(analyzer_by_path.delay(self.image.path).get()))
 
-        self.results = [{"module_result": task_get}]
+        self.results = task_get
         super(ImageModel, self).save()
