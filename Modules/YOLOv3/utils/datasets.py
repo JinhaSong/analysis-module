@@ -60,6 +60,25 @@ class ImageFolder(Dataset):
     def __len__(self):
         return len(self.files)
 
+class ImageLoader(Dataset) :
+    def __init__(self, image_path, img_size=416):
+        self.file = image_path
+        self.img_size = img_size
+
+    def __getitem__(self, index):
+        img_path = self.file
+        # Extract image as PyTorch tensor
+        img = transforms.ToTensor()(Image.open(img_path))
+        # Pad to square resolution
+        img, _ = pad_to_square(img, 0)
+        # Resize
+        img = resize(img, self.img_size)
+
+        return img_path, img
+
+    def __len__(self):
+        return 1
+
 class TarLoader(Dataset):
     def __init__(self, img_dir='data.tar', transform=None, img_size=416):
         self.img_names = []
