@@ -48,7 +48,7 @@ class YOLOv3:
 
     def inference_by_path(self, file_path):
         fname, ext = os.path.splitext(file_path)
-        print(ext)
+        zip_file = None
         if ext == ".zip" :
             loader = ZipFileLoader(file_path, img_size=self.img_size)
             zip_file = zipfile.ZipFile(file_path)
@@ -98,7 +98,7 @@ class YOLOv3:
             }
             if detections is not None:
                 # Rescale boxes to original image
-                detections = rescale_boxes(detections, self.img_size, img.shape[:2])
+                detections = rescale_boxes(detections, self.img_size, shape)
                 for x, y, x2, y2, conf, cls_conf, cls_pred in detections:
                     w = x2 - x
                     h = y2 - y
@@ -116,7 +116,8 @@ class YOLOv3:
                     })
             results.append(img_result)
 
-        zip_file.close()
+        if ext == ".zip" :
+            zip_file.close()
         self.result = results
 
         return self.result
