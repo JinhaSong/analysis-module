@@ -24,7 +24,7 @@ class YOLOv3:
         self.config_path = os.path.join(self.path, "config", "yolov3-nsfw.cfg")
         self.weights_path = os.path.join(self.path, "weights", "yolov3-nsfw_50000.weights")
         self.class_path = os.path.join(self.path, "data", "nsfw.names")
-        self.img_size = 416
+        self.img_size = 604
         self.conf_thres = 0.8
         self.nms_thres = 0.4
         self.batch_size = 1
